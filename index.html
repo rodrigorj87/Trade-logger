@@ -300,6 +300,9 @@
                 dynamicTyping: true,
                 skipEmptyLines: true,
                 complete: async function(results) {
+                    console.log('CSV parsed. Found columns:', Object.keys(results.data[0] || {}));
+                    console.log('First row sample:', results.data[0]);
+                    
                     const newTrades = results.data.map((row, index) => {
                         return {
                             id: appendMode ? allTrades.length + index : index,
