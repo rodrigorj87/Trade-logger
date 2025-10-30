@@ -1,0 +1,240 @@
+import React, { useState } from 'react';
+import { Upload, DollarSign, TrendingUp, TrendingDown, Calendar, Search } from 'lucide-react';
+import Papa from 'papaparse';
+
+export default function TradeLogger() {
+  const [trades, setTrades] = useState([]);
+  const [filteredTrades, setFilteredTrades] = useState([]);
+  const [searchTerm, setSearchTerm] = useState('');
+  const [stats, setStats] = useState(null);
+
+  const calculateStats = (tradeData) => {
+    const totalTrades = tradeData.length;
+    const profitableTrades = tradeData.filter(t => t.pnl > 0).length;
+    const losingTrades = tradeData.filter(t => t.pnl < 0).length;
+    const totalPnL = tradeData.reduce((sum, t) => sum + t.pnl, 0);
+    const winRate = totalTrades > 0 ? (profitableTrades / totalTrades * 100).toFixed(1) : 0;
+    const avgWin = profitableTrades > 0 ? tradeData.filter(t => t.pnl > 0).reduce((sum, t) => sum + t.pnl, 0) / profitableTrades : 0;
+    const avgLoss = losingTrades > 0 ? tradeData.filter(t => t.pnl < 0).reduce((sum, t) => sum + t.pnl, 0) / losingTrades : 0;
+
+    return {
+      totalTrades,
+      profitableTrades,
+      losingTrades,
+      totalPnL,
+      winRate,
+      avgWin,
+      avgLoss
+    };
+  };
+
+  const handleFileUpload = (event) => {
+    const file = event.target.files[0];
+    if (!file) return;
+
+    Papa.parse(file, {
+      header: true,
+      dynamicTyping: true,
+      skipEmptyLines: true,
+      complete: (results) => {
+        const parsedTrades = results.data.map((row, index) => {
+          // ThinkorSwim CSV format typically includes these columns
+          // Adapt based on actual TOS export format
+          return {
+            id: index,
+            date: row['Exec Time'] || row['Date'] || row['Time'],
+            symbol: row['Symbol'] || row['Underlying'],
+            side: row['Side'] || row['Action'],
+            quantity: Math.abs(row['Qty'] || row['Quantity'] || 0),
+            price: row['Price'] || row['Avg Price'] || 0,
+            pnl: row['P/L'] || row['Net P/L'] || row['P&L'] || 0,
+            type: row['Type'] || row['Instrument'] || 'Stock',
+            commission: row['Commission'] || row['Fees'] || 0,
+            netAmount: row['Net Amount'] || row['Amount'] || 0
+          };
+        }).filter(trade => trade.symbol); // Filter out empty rows
+
+        setTrades(parsedTrades);
+        setFilteredTrades(parsedTrades);
+        setStats(calculateStats(parsedTrades));
+      },
+      error: (error) => {
+        alert('Error parsing CSV: ' + error.message);
+      }
+    });
+  };
+
+  const handleSearch = (term) => {
+    setSearchTerm(term);
+    if (!term) {
+      setFilteredTrades(trades);
+    } else {
+      const filtered = trades.filter(trade => 
+        trade.symbol?.toLowerCase().includes(term.toLowerCase())
+      );
+      setFilteredTrades(filtered);
+    }
+  };
+
+  const formatCurrency = (value) => {
+    return new Intl.NumberFormat('en-US', {
+      style: 'currency',
+      currency: 'USD',
+      minimumFractionDigits: 2
+    }).format(value);
+  };
+
+  const formatDate = (dateStr) => {
+    if (!dateStr) return 'N/A';
+    try {
+      const date = new Date(dateStr);
+      return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+    } catch {
+      return dateStr;
+    }
+  };
+
+  return (
+    <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 p-6">
+      <div className="max-w-7xl mx-auto">
+        {/* Header */}
+        <div className="mb-8">
+          <h1 className="text-4xl font-bold text-white mb-2">ThinkorSwim Trade Logger</h1>
+          <p className="text-slate-400">Import and analyze your trading history</p>
+        </div>
+
+        {/* Upload Section */}
+        <div className="bg-slate-800/50 backdrop-blur rounded-xl p-8 mb-6 border border-slate-700">
+          <label className="flex flex-col items-center justify-center cursor-pointer hover:bg-slate-700/30 transition-colors rounded-lg p-8 border-2 border-dashed border-slate-600">
+            <Upload className="w-12 h-12 text-blue-400 mb-3" />
+            <span className="text-lg text-white mb-2">Upload ThinkorSwim CSV</span>
+            <span className="text-sm text-slate-400">Click to browse or drag and drop</span>
+            <input
+              type="file"
+              accept=".csv"
+              onChange={handleFileUpload}
+              className="hidden"
+            />
+          </label>
+        </div>
+
+        {/* Statistics */}
+        {stats && (
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
+            <div className="bg-gradient-to-br from-blue-600 to-blue-700 rounded-xl p-6 text-white">
+              <div className="flex items-center justify-between mb-2">
+                <span className="text-blue-100">Total P&L</span>
+                <DollarSign className="w-5 h-5 text-blue-200" />
+              </div>
+              <div className={`text-3xl font-bold ${stats.totalPnL >= 0 ? 'text-white' : 'text-red-200'}`}>
+                {formatCurrency(stats.totalPnL)}
+              </div>
+            </div>
+
+            <div className="bg-slate-800/50 backdrop-blur rounded-xl p-6 border border-slate-700">
+              <div className="flex items-center justify-between mb-2">
+                <span className="text-slate-400">Win Rate</span>
+                <TrendingUp className="w-5 h-5 text-green-400" />
+              </div>
+              <div className="text-3xl font-bold text-white">{stats.winRate}%</div>
+              <div className="text-sm text-slate-400 mt-1">
+                {stats.profitableTrades}W / {stats.losingTrades}L
+              </div>
+            </div>
+
+            <div className="bg-slate-800/50 backdrop-blur rounded-xl p-6 border border-slate-700">
+              <div className="flex items-center justify-between mb-2">
+                <span className="text-slate-400">Avg Win</span>
+                <TrendingUp className="w-5 h-5 text-green-400" />
+              </div>
+              <div className="text-3xl font-bold text-green-400">{formatCurrency(stats.avgWin)}</div>
+            </div>
+
+            <div className="bg-slate-800/50 backdrop-blur rounded-xl p-6 border border-slate-700">
+              <div className="flex items-center justify-between mb-2">
+                <span className="text-slate-400">Avg Loss</span>
+                <TrendingDown className="w-5 h-5 text-red-400" />
+              </div>
+              <div className="text-3xl font-bold text-red-400">{formatCurrency(stats.avgLoss)}</div>
+            </div>
+          </div>
+        )}
+
+        {/* Search */}
+        {trades.length > 0 && (
+          <div className="mb-6">
+            <div className="relative">
+              <Search className="absolute left-4 top-1/2 transform -translate-y-1/2 w-5 h-5 text-slate-400" />
+              <input
+                type="text"
+                placeholder="Search by symbol..."
+                value={searchTerm}
+                onChange={(e) => handleSearch(e.target.value)}
+                className="w-full bg-slate-800/50 backdrop-blur border border-slate-700 rounded-xl pl-12 pr-4 py-3 text-white placeholder-slate-400 focus:outline-none focus:border-blue-500 transition-colors"
+              />
+            </div>
+          </div>
+        )}
+
+        {/* Trades Table */}
+        {filteredTrades.length > 0 && (
+          <div className="bg-slate-800/50 backdrop-blur rounded-xl border border-slate-700 overflow-hidden">
+            <div className="overflow-x-auto">
+              <table className="w-full">
+                <thead>
+                  <tr className="bg-slate-900/50">
+                    <th className="px-6 py-4 text-left text-sm font-semibold text-slate-300">Date</th>
+                    <th className="px-6 py-4 text-left text-sm font-semibold text-slate-300">Symbol</th>
+                    <th className="px-6 py-4 text-left text-sm font-semibold text-slate-300">Type</th>
+                    <th className="px-6 py-4 text-left text-sm font-semibold text-slate-300">Side</th>
+                    <th className="px-6 py-4 text-right text-sm font-semibold text-slate-300">Quantity</th>
+                    <th className="px-6 py-4 text-right text-sm font-semibold text-slate-300">Price</th>
+                    <th className="px-6 py-4 text-right text-sm font-semibold text-slate-300">P&L</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-700">
+                  {filteredTrades.map((trade) => (
+                    <tr key={trade.id} className="hover:bg-slate-700/30 transition-colors">
+                      <td className="px-6 py-4 text-sm text-slate-300">
+                        <div className="flex items-center">
+                          <Calendar className="w-4 h-4 mr-2 text-slate-500" />
+                          {formatDate(trade.date)}
+                        </div>
+                      </td>
+                      <td className="px-6 py-4">
+                        <span className="text-white font-semibold">{trade.symbol}</span>
+                      </td>
+                      <td className="px-6 py-4 text-sm text-slate-400">{trade.type}</td>
+                      <td className="px-6 py-4">
+                        <span className={`inline-flex px-2 py-1 rounded text-xs font-semibold ${
+                          trade.side?.toUpperCase().includes('BUY') ? 'bg-green-500/20 text-green-400' : 'bg-red-500/20 text-red-400'
+                        }`}>
+                          {trade.side}
+                        </span>
+                      </td>
+                      <td className="px-6 py-4 text-right text-sm text-slate-300">{trade.quantity}</td>
+                      <td className="px-6 py-4 text-right text-sm text-slate-300">{formatCurrency(trade.price)}</td>
+                      <td className="px-6 py-4 text-right">
+                        <span className={`font-semibold ${trade.pnl >= 0 ? 'text-green-400' : 'text-red-400'}`}>
+                          {formatCurrency(trade.pnl)}
+                        </span>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        )}
+
+        {trades.length === 0 && (
+          <div className="text-center py-12 text-slate-400">
+            <Upload className="w-16 h-16 mx-auto mb-4 opacity-50" />
+            <p className="text-lg">No trades loaded yet</p>
+            <p className="text-sm mt-2">Upload a CSV file from ThinkorSwim to get started</p>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
