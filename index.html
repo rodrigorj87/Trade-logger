@@ -318,6 +318,8 @@
                         };
                     }).filter(trade => trade.symbol);
 
+                    console.log(`Parsed ${results.data.length} rows, ${newTrades.length} valid trades`);
+                    
                     if (newTrades.length > 0) {
                         if (appendMode) {
                             allTrades = [...allTrades, ...newTrades];
