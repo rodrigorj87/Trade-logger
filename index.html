@@ -4,252 +4,262 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>ThinkorSwim Trade Logger</title>
-    <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
-    <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
-    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
-    <script src="https://unpkg.com/lucide@latest"></script>
     <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        body { margin: 0; padding: 0; }
+    </style>
 </head>
-<body>
-    <div id="root"></div>
-    
-    <script type="text/babel">
-        const { useState } = React;
-        const { Upload, DollarSign, TrendingUp, TrendingDown, Calendar, Search } = lucide;
+<body class="bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 min-h-screen">
+    <div id="app" class="p-6">
+        <div class="max-w-7xl mx-auto">
+            <!-- Header -->
+            <div class="mb-8">
+                <h1 class="text-4xl font-bold text-white mb-2">ThinkorSwim Trade Logger</h1>
+                <p class="text-slate-400">Import and analyze your trading history</p>
+            </div>
 
-        function TradeLogger() {
-          const [trades, setTrades] = useState([]);
-          const [filteredTrades, setFilteredTrades] = useState([]);
-          const [searchTerm, setSearchTerm] = useState('');
-          const [stats, setStats] = useState(null);
+            <!-- Upload Section -->
+            <div class="bg-slate-800/50 backdrop-blur rounded-xl p-8 mb-6 border border-slate-700">
+                <label for="csvFile" class="flex flex-col items-center justify-center cursor-pointer hover:bg-slate-700/30 transition-colors rounded-lg p-8 border-2 border-dashed border-slate-600">
+                    <svg class="w-12 h-12 text-blue-400 mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"></path>
+                    </svg>
+                    <span class="text-lg text-white mb-2">Upload ThinkorSwim CSV</span>
+                    <span class="text-sm text-slate-400">Click to browse or drag and drop</span>
+                    <input type="file" id="csvFile" accept=".csv" class="hidden">
+                </label>
+            </div>
 
-          const calculateStats = (tradeData) => {
-            const totalTrades = tradeData.length;
-            const profitableTrades = tradeData.filter(t => t.pnl > 0).length;
-            const losingTrades = tradeData.filter(t => t.pnl < 0).length;
-            const totalPnL = tradeData.reduce((sum, t) => sum + t.pnl, 0);
+            <!-- Statistics -->
+            <div id="stats" class="hidden grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
+                <div class="bg-gradient-to-br from-blue-600 to-blue-700 rounded-xl p-6 text-white">
+                    <div class="flex items-center justify-between mb-2">
+                        <span class="text-blue-100">Total P&L</span>
+                        <svg class="w-5 h-5 text-blue-200" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                        </svg>
+                    </div>
+                    <div id="totalPnl" class="text-3xl font-bold text-white">$0.00</div>
+                </div>
+
+                <div class="bg-slate-800/50 backdrop-blur rounded-xl p-6 border border-slate-700">
+                    <div class="flex items-center justify-between mb-2">
+                        <span class="text-slate-400">Win Rate</span>
+                        <svg class="w-5 h-5 text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6"></path>
+                        </svg>
+                    </div>
+                    <div id="winRate" class="text-3xl font-bold text-white">0%</div>
+                    <div id="winLoss" class="text-sm text-slate-400 mt-1">0W / 0L</div>
+                </div>
+
+                <div class="bg-slate-800/50 backdrop-blur rounded-xl p-6 border border-slate-700">
+                    <div class="flex items-center justify-between mb-2">
+                        <span class="text-slate-400">Avg Win</span>
+                        <svg class="w-5 h-5 text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6"></path>
+                        </svg>
+                    </div>
+                    <div id="avgWin" class="text-3xl font-bold text-green-400">$0.00</div>
+                </div>
+
+                <div class="bg-slate-800/50 backdrop-blur rounded-xl p-6 border border-slate-700">
+                    <div class="flex items-center justify-between mb-2">
+                        <span class="text-slate-400">Avg Loss</span>
+                        <svg class="w-5 h-5 text-red-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 17h8m0 0V9m0 8l-8-8-4 4-6-6"></path>
+                        </svg>
+                    </div>
+                    <div id="avgLoss" class="text-3xl font-bold text-red-400">$0.00</div>
+                </div>
+            </div>
+
+            <!-- Search -->
+            <div id="searchBox" class="hidden mb-6">
+                <div class="relative">
+                    <svg class="absolute left-4 top-1/2 transform -translate-y-1/2 w-5 h-5 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path>
+                    </svg>
+                    <input type="text" id="searchInput" placeholder="Search by symbol..." class="w-full bg-slate-800/50 backdrop-blur border border-slate-700 rounded-xl pl-12 pr-4 py-3 text-white placeholder-slate-400 focus:outline-none focus:border-blue-500 transition-colors">
+                </div>
+            </div>
+
+            <!-- Trades Table -->
+            <div id="tradesTable" class="hidden bg-slate-800/50 backdrop-blur rounded-xl border border-slate-700 overflow-hidden">
+                <div class="overflow-x-auto">
+                    <table class="w-full">
+                        <thead>
+                            <tr class="bg-slate-900/50">
+                                <th class="px-6 py-4 text-left text-sm font-semibold text-slate-300">Date</th>
+                                <th class="px-6 py-4 text-left text-sm font-semibold text-slate-300">Symbol</th>
+                                <th class="px-6 py-4 text-left text-sm font-semibold text-slate-300">Type</th>
+                                <th class="px-6 py-4 text-left text-sm font-semibold text-slate-300">Side</th>
+                                <th class="px-6 py-4 text-right text-sm font-semibold text-slate-300">Quantity</th>
+                                <th class="px-6 py-4 text-right text-sm font-semibold text-slate-300">Price</th>
+                                <th class="px-6 py-4 text-right text-sm font-semibold text-slate-300">P&L</th>
+                            </tr>
+                        </thead>
+                        <tbody id="tradesBody" class="divide-y divide-slate-700">
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- Empty State -->
+            <div id="emptyState" class="text-center py-12 text-slate-400">
+                <svg class="w-16 h-16 mx-auto mb-4 opacity-50" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"></path>
+                </svg>
+                <p class="text-lg">No trades loaded yet</p>
+                <p class="text-sm mt-2">Upload a CSV file from ThinkorSwim to get started</p>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
+    <script>
+        let allTrades = [];
+
+        function formatCurrency(value) {
+            return new Intl.NumberFormat('en-US', {
+                style: 'currency',
+                currency: 'USD',
+                minimumFractionDigits: 2
+            }).format(value);
+        }
+
+        function formatDate(dateStr) {
+            if (!dateStr) return 'N/A';
+            try {
+                const date = new Date(dateStr);
+                return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+            } catch {
+                return dateStr;
+            }
+        }
+
+        function calculateStats(trades) {
+            const totalTrades = trades.length;
+            const profitableTrades = trades.filter(t => t.pnl > 0).length;
+            const losingTrades = trades.filter(t => t.pnl < 0).length;
+            const totalPnL = trades.reduce((sum, t) => sum + t.pnl, 0);
             const winRate = totalTrades > 0 ? (profitableTrades / totalTrades * 100).toFixed(1) : 0;
-            const avgWin = profitableTrades > 0 ? tradeData.filter(t => t.pnl > 0).reduce((sum, t) => sum + t.pnl, 0) / profitableTrades : 0;
-            const avgLoss = losingTrades > 0 ? tradeData.filter(t => t.pnl < 0).reduce((sum, t) => sum + t.pnl, 0) / losingTrades : 0;
+            const avgWin = profitableTrades > 0 ? trades.filter(t => t.pnl > 0).reduce((sum, t) => sum + t.pnl, 0) / profitableTrades : 0;
+            const avgLoss = losingTrades > 0 ? trades.filter(t => t.pnl < 0).reduce((sum, t) => sum + t.pnl, 0) / losingTrades : 0;
 
-            return {
-              totalTrades,
-              profitableTrades,
-              losingTrades,
-              totalPnL,
-              winRate,
-              avgWin,
-              avgLoss
-            };
-          };
+            return { totalTrades, profitableTrades, losingTrades, totalPnL, winRate, avgWin, avgLoss };
+        }
 
-          const handleFileUpload = (event) => {
-            const file = event.target.files[0];
+        function updateStats(stats) {
+            document.getElementById('totalPnl').textContent = formatCurrency(stats.totalPnL);
+            document.getElementById('totalPnl').className = `text-3xl font-bold ${stats.totalPnL >= 0 ? 'text-white' : 'text-red-200'}`;
+            document.getElementById('winRate').textContent = stats.winRate + '%';
+            document.getElementById('winLoss').textContent = `${stats.profitableTrades}W / ${stats.losingTrades}L`;
+            document.getElementById('avgWin').textContent = formatCurrency(stats.avgWin);
+            document.getElementById('avgLoss').textContent = formatCurrency(stats.avgLoss);
+            document.getElementById('stats').classList.remove('hidden');
+        }
+
+        function renderTrades(trades) {
+            const tbody = document.getElementById('tradesBody');
+            tbody.innerHTML = '';
+
+            trades.forEach(trade => {
+                const row = document.createElement('tr');
+                row.className = 'hover:bg-slate-700/30 transition-colors';
+                
+                const isBuy = trade.side?.toUpperCase().includes('BUY');
+                const sideClass = isBuy ? 'bg-green-500/20 text-green-400' : 'bg-red-500/20 text-red-400';
+                const pnlClass = trade.pnl >= 0 ? 'text-green-400' : 'text-red-400';
+
+                row.innerHTML = `
+                    <td class="px-6 py-4 text-sm text-slate-300">
+                        <div class="flex items-center">
+                            <svg class="w-4 h-4 mr-2 text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"></path>
+                            </svg>
+                            ${formatDate(trade.date)}
+                        </div>
+                    </td>
+                    <td class="px-6 py-4">
+                        <span class="text-white font-semibold">${trade.symbol}</span>
+                    </td>
+                    <td class="px-6 py-4 text-sm text-slate-400">${trade.type}</td>
+                    <td class="px-6 py-4">
+                        <span class="inline-flex px-2 py-1 rounded text-xs font-semibold ${sideClass}">
+                            ${trade.side}
+                        </span>
+                    </td>
+                    <td class="px-6 py-4 text-right text-sm text-slate-300">${trade.quantity}</td>
+                    <td class="px-6 py-4 text-right text-sm text-slate-300">${formatCurrency(trade.price)}</td>
+                    <td class="px-6 py-4 text-right">
+                        <span class="font-semibold ${pnlClass}">
+                            ${formatCurrency(trade.pnl)}
+                        </span>
+                    </td>
+                `;
+                tbody.appendChild(row);
+            });
+
+            document.getElementById('tradesTable').classList.remove('hidden');
+            document.getElementById('searchBox').classList.remove('hidden');
+            document.getElementById('emptyState').classList.add('hidden');
+        }
+
+        function handleSearch(searchTerm) {
+            if (!searchTerm) {
+                renderTrades(allTrades);
+            } else {
+                const filtered = allTrades.filter(trade => 
+                    trade.symbol?.toLowerCase().includes(searchTerm.toLowerCase())
+                );
+                renderTrades(filtered);
+            }
+        }
+
+        document.getElementById('csvFile').addEventListener('change', function(e) {
+            const file = e.target.files[0];
             if (!file) return;
 
             Papa.parse(file, {
-              header: true,
-              dynamicTyping: true,
-              skipEmptyLines: true,
-              complete: (results) => {
-                const parsedTrades = results.data.map((row, index) => {
-                  return {
-                    id: index,
-                    date: row['Exec Time'] || row['Date'] || row['Time'],
-                    symbol: row['Symbol'] || row['Underlying'],
-                    side: row['Side'] || row['Action'],
-                    quantity: Math.abs(row['Qty'] || row['Quantity'] || 0),
-                    price: row['Price'] || row['Avg Price'] || 0,
-                    pnl: row['P/L'] || row['Net P/L'] || row['P&L'] || 0,
-                    type: row['Type'] || row['Instrument'] || 'Stock',
-                    commission: row['Commission'] || row['Fees'] || 0,
-                    netAmount: row['Net Amount'] || row['Amount'] || 0
-                  };
-                }).filter(trade => trade.symbol);
+                header: true,
+                dynamicTyping: true,
+                skipEmptyLines: true,
+                complete: function(results) {
+                    allTrades = results.data.map((row, index) => {
+                        return {
+                            id: index,
+                            date: row['Exec Time'] || row['Date'] || row['Time'],
+                            symbol: row['Symbol'] || row['Underlying'],
+                            side: row['Side'] || row['Action'],
+                            quantity: Math.abs(row['Qty'] || row['Quantity'] || 0),
+                            price: row['Price'] || row['Avg Price'] || 0,
+                            pnl: row['P/L'] || row['Net P/L'] || row['P&L'] || 0,
+                            type: row['Type'] || row['Instrument'] || 'Stock',
+                            commission: row['Commission'] || row['Fees'] || 0,
+                            netAmount: row['Net Amount'] || row['Amount'] || 0
+                        };
+                    }).filter(trade => trade.symbol);
 
-                setTrades(parsedTrades);
-                setFilteredTrades(parsedTrades);
-                setStats(calculateStats(parsedTrades));
-              },
-              error: (error) => {
-                alert('Error parsing CSV: ' + error.message);
-              }
+                    if (allTrades.length > 0) {
+                        const stats = calculateStats(allTrades);
+                        updateStats(stats);
+                        renderTrades(allTrades);
+                    } else {
+                        alert('No valid trades found in CSV. Please check the file format.');
+                    }
+                },
+                error: function(error) {
+                    alert('Error parsing CSV: ' + error.message);
+                }
             });
-          };
+        });
 
-          const handleSearch = (term) => {
-            setSearchTerm(term);
-            if (!term) {
-              setFilteredTrades(trades);
-            } else {
-              const filtered = trades.filter(trade => 
-                trade.symbol?.toLowerCase().includes(term.toLowerCase())
-              );
-              setFilteredTrades(filtered);
-            }
-          };
+        document.getElementById('searchInput').addEventListener('input', function(e) {
+            handleSearch(e.target.value);
+        });
 
-          const formatCurrency = (value) => {
-            return new Intl.NumberFormat('en-US', {
-              style: 'currency',
-              currency: 'USD',
-              minimumFractionDigits: 2
-            }).format(value);
-          };
-
-          const formatDate = (dateStr) => {
-            if (!dateStr) return 'N/A';
-            try {
-              const date = new Date(dateStr);
-              return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
-            } catch {
-              return dateStr;
-            }
-          };
-
-          return (
-            <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 p-6">
-              <div className="max-w-7xl mx-auto">
-                <div className="mb-8">
-                  <h1 className="text-4xl font-bold text-white mb-2">ThinkorSwim Trade Logger</h1>
-                  <p className="text-slate-400">Import and analyze your trading history</p>
-                </div>
-
-                <div className="bg-slate-800/50 backdrop-blur rounded-xl p-8 mb-6 border border-slate-700">
-                  <label className="flex flex-col items-center justify-center cursor-pointer hover:bg-slate-700/30 transition-colors rounded-lg p-8 border-2 border-dashed border-slate-600">
-                    {React.createElement(Upload, { className: "w-12 h-12 text-blue-400 mb-3" })}
-                    <span className="text-lg text-white mb-2">Upload ThinkorSwim CSV</span>
-                    <span className="text-sm text-slate-400">Click to browse or drag and drop</span>
-                    <input
-                      type="file"
-                      accept=".csv"
-                      onChange={handleFileUpload}
-                      className="hidden"
-                    />
-                  </label>
-                </div>
-
-                {stats && (
-                  <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
-                    <div className="bg-gradient-to-br from-blue-600 to-blue-700 rounded-xl p-6 text-white">
-                      <div className="flex items-center justify-between mb-2">
-                        <span className="text-blue-100">Total P&L</span>
-                        {React.createElement(DollarSign, { className: "w-5 h-5 text-blue-200" })}
-                      </div>
-                      <div className={`text-3xl font-bold ${stats.totalPnL >= 0 ? 'text-white' : 'text-red-200'}`}>
-                        {formatCurrency(stats.totalPnL)}
-                      </div>
-                    </div>
-
-                    <div className="bg-slate-800/50 backdrop-blur rounded-xl p-6 border border-slate-700">
-                      <div className="flex items-center justify-between mb-2">
-                        <span className="text-slate-400">Win Rate</span>
-                        {React.createElement(TrendingUp, { className: "w-5 h-5 text-green-400" })}
-                      </div>
-                      <div className="text-3xl font-bold text-white">{stats.winRate}%</div>
-                      <div className="text-sm text-slate-400 mt-1">
-                        {stats.profitableTrades}W / {stats.losingTrades}L
-                      </div>
-                    </div>
-
-                    <div className="bg-slate-800/50 backdrop-blur rounded-xl p-6 border border-slate-700">
-                      <div className="flex items-center justify-between mb-2">
-                        <span className="text-slate-400">Avg Win</span>
-                        {React.createElement(TrendingUp, { className: "w-5 h-5 text-green-400" })}
-                      </div>
-                      <div className="text-3xl font-bold text-green-400">{formatCurrency(stats.avgWin)}</div>
-                    </div>
-
-                    <div className="bg-slate-800/50 backdrop-blur rounded-xl p-6 border border-slate-700">
-                      <div className="flex items-center justify-between mb-2">
-                        <span className="text-slate-400">Avg Loss</span>
-                        {React.createElement(TrendingDown, { className: "w-5 h-5 text-red-400" })}
-                      </div>
-                      <div className="text-3xl font-bold text-red-400">{formatCurrency(stats.avgLoss)}</div>
-                    </div>
-                  </div>
-                )}
-
-                {trades.length > 0 && (
-                  <div className="mb-6">
-                    <div className="relative">
-                      {React.createElement(Search, { className: "absolute left-4 top-1/2 transform -translate-y-1/2 w-5 h-5 text-slate-400" })}
-                      <input
-                        type="text"
-                        placeholder="Search by symbol..."
-                        value={searchTerm}
-                        onChange={(e) => handleSearch(e.target.value)}
-                        className="w-full bg-slate-800/50 backdrop-blur border border-slate-700 rounded-xl pl-12 pr-4 py-3 text-white placeholder-slate-400 focus:outline-none focus:border-blue-500 transition-colors"
-                      />
-                    </div>
-                  </div>
-                )}
-
-                {filteredTrades.length > 0 && (
-                  <div className="bg-slate-800/50 backdrop-blur rounded-xl border border-slate-700 overflow-hidden">
-                    <div className="overflow-x-auto">
-                      <table className="w-full">
-                        <thead>
-                          <tr className="bg-slate-900/50">
-                            <th className="px-6 py-4 text-left text-sm font-semibold text-slate-300">Date</th>
-                            <th className="px-6 py-4 text-left text-sm font-semibold text-slate-300">Symbol</th>
-                            <th className="px-6 py-4 text-left text-sm font-semibold text-slate-300">Type</th>
-                            <th className="px-6 py-4 text-left text-sm font-semibold text-slate-300">Side</th>
-                            <th className="px-6 py-4 text-right text-sm font-semibold text-slate-300">Quantity</th>
-                            <th className="px-6 py-4 text-right text-sm font-semibold text-slate-300">Price</th>
-                            <th className="px-6 py-4 text-right text-sm font-semibold text-slate-300">P&L</th>
-                          </tr>
-                        </thead>
-                        <tbody className="divide-y divide-slate-700">
-                          {filteredTrades.map((trade) => (
-                            <tr key={trade.id} className="hover:bg-slate-700/30 transition-colors">
-                              <td className="px-6 py-4 text-sm text-slate-300">
-                                <div className="flex items-center">
-                                  {React.createElement(Calendar, { className: "w-4 h-4 mr-2 text-slate-500" })}
-                                  {formatDate(trade.date)}
-                                </div>
-                              </td>
-                              <td className="px-6 py-4">
-                                <span className="text-white font-semibold">{trade.symbol}</span>
-                              </td>
-                              <td className="px-6 py-4 text-sm text-slate-400">{trade.type}</td>
-                              <td className="px-6 py-4">
-                                <span className={`inline-flex px-2 py-1 rounded text-xs font-semibold ${
-                                  trade.side?.toUpperCase().includes('BUY') ? 'bg-green-500/20 text-green-400' : 'bg-red-500/20 text-red-400'
-                                }`}>
-                                  {trade.side}
-                                </span>
-                              </td>
-                              <td className="px-6 py-4 text-right text-sm text-slate-300">{trade.quantity}</td>
-                              <td className="px-6 py-4 text-right text-sm text-slate-300">{formatCurrency(trade.price)}</td>
-                              <td className="px-6 py-4 text-right">
-                                <span className={`font-semibold ${trade.pnl >= 0 ? 'text-green-400' : 'text-red-400'}`}>
-                                  {formatCurrency(trade.pnl)}
-                                </span>
-                              </td>
-                            </tr>
-                          ))}
-                        </tbody>
-                      </table>
-                    </div>
-                  </div>
-                )}
-
-                {trades.length === 0 && (
-                  <div className="text-center py-12 text-slate-400">
-                    {React.createElement(Upload, { className: "w-16 h-16 mx-auto mb-4 opacity-50" })}
-                    <p className="text-lg">No trades loaded yet</p>
-                    <p className="text-sm mt-2">Upload a CSV file from ThinkorSwim to get started</p>
-                  </div>
-                )}
-              </div>
-            </div>
-          );
-        }
-
-        const root = ReactDOM.createRoot(document.getElementById('root'));
-        root.render(<TradeLogger />);
+        console.log('Trade Logger loaded successfully!');
     </script>
 </body>
 </html>
