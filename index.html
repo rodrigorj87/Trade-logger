@@ -207,6 +207,8 @@
                         document.getElementById('clearData').classList.remove('hidden');
                         console.log(`Loaded ${trades.length} trades from storage`);
                     }
+                    
+                    console.log(`Total parsed: ${results.data.length} rows, ${allTrades.length} valid trades`);
                 }
             } catch (error) {
                 console.log('No saved trades found or error loading:', error);
