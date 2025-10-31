@@ -304,20 +304,67 @@
                     console.log('CSV parsed. Found columns:', Object.keys(results.data[0] || {}));
                     console.log('First row sample:', results.data[0]);
                     
-                    const newTrades = results.data.map((row, index) => {
+                    // Filter out header rows and summary rows
+                    const dataRows = results.data.filter(row => {
+                        const firstCol = Object.values(row)[0];
+                        // Skip if it's a header, summary, or empty row
+                        if (!firstCol || typeof firstCol === 'string') {
+                            const str = firstCol?.toLowerCase() || '';
+                            if (str.includes('account statement') || 
+                                str.includes('cash balance') || 
+                                str.includes('date,time') ||
+                                str === '') {
+                                return false;
+                            }
+                        }
+                        return true;
+                    });
+                    
+                    const newTrades = dataRows.map((row, index) => {
+                        // Extract symbol from DESCRIPTION field
+                        // Format: "BOT +2 MSFT @518.45" or "SOLD -1 FIG @69.47"
+                        const description = row['DESCRIPTION'] || '';
+                        const symbolMatch = description.match(/(?:BOT|SOLD)\s+[+-]?\d+\s+([A-Z]+)/);
+                        const symbol = symbolMatch ? symbolMatch[1] : '';
+                        
+                        // Determine side (BUY/SELL)
+                        const side = description.includes('BOT') ? 'BUY' : 
+                                    description.includes('SOLD') ? 'SELL' : '';
+                        
+                        // Extract quantity
+                        const qtyMatch = description.match(/[+-]?(\d+)\s+[A-Z]+/);
+                        const quantity = qtyMatch ? Math.abs(parseInt(qtyMatch[1])) : 0;
+                        
+                        // Extract price
+                        const priceMatch = description.match(/@([\d,.]+)/);
+                        const price = priceMatch ? parseFloat(priceMatch[1].replace(',', '')) : 0;
+                        
+                        // Get P&L from AMOUNT column (negative values are losses)
+                        const amount = row['AMOUNT'] || 0;
+                        const pnl = typeof amount === 'string' ? 
+                            parseFloat(amount.replace(/[,$"]/g, '')) : amount;
+                        
+                        // Get fees
+                        const fees = row['Commissions & Fees'] || row['Misc Fees'] || 0;
+                        const commission = typeof fees === 'string' ? 
+                            parseFloat(fees.replace(/[,$"]/g, '')) : fees;
+                        
+                        // Combine DATE and TIME
+                        const dateTime = `${row['DATE']} ${row['TIME']}`;
+                        
                         return {
                             id: appendMode ? allTrades.length + index : index,
-                            date: row['Exec Time'] || row['Date'] || row['Time'],
-                            symbol: row['Symbol'] || row['Underlying'],
-                            side: row['Side'] || row['Action'],
-                            quantity: Math.abs(row['Qty'] || row['Quantity'] || 0),
-                            price: row['Price'] || row['Avg Price'] || 0,
-                            pnl: row['P/L'] || row['Net P/L'] || row['P&L'] || 0,
-                            type: row['Type'] || row['Instrument'] || 'Stock',
-                            commission: row['Commission'] || row['Fees'] || 0,
-                            netAmount: row['Net Amount'] || row['Amount'] || 0
+                            date: dateTime,
+                            symbol: symbol,
+                            side: side,
+                            quantity: quantity,
+                            price: price,
+                            pnl: pnl,
+                            type: row['TYPE'] || 'TRD',
+                            commission: commission,
+                            netAmount: pnl
                         };
-                    }).filter(trade => trade.symbol);
+                    }).filter(trade => trade.symbol && trade.side);
 
                     console.log(`Parsed ${results.data.length} rows, ${newTrades.length} valid trades`);
                     
