@@ -323,6 +323,8 @@
                     
                     console.log('Data rows after filtering:', dataRows.length);
                     console.log('First data row:', dataRows[0]);
+                    console.log('First data row DESCRIPTION field:', dataRows[0]?.DESCRIPTION);
+                    console.log('All column names in first data row:', Object.keys(dataRows[0] || {}));
                     
                     const newTrades = dataRows.map((row, index) => {
                         // Extract symbol from DESCRIPTION field
@@ -371,6 +373,9 @@
                         
                         if (index < 3) {
                             console.log(`Trade ${index}:`, trade);
+                            console.log(`  - Description: "${description}"`);
+                            console.log(`  - Symbol match result:`, symbolMatch);
+                            console.log(`  - Symbol: "${symbol}", Side: "${side}"`);
                         }
                         
                         return trade;
@@ -379,8 +384,8 @@
                     console.log('Valid trades found:', newTrades.length);
 
                     console.log(`Parsed ${results.data.length} rows, ${newTrades.length} valid trades`);
-                    
-                    if (newTrades.length > 0) {
+                                        
+                    if (allTrades.length > 0) {
                         if (appendMode) {
                             allTrades = [...allTrades, ...newTrades];
                             alert(`Added ${newTrades.length} new trades! Total: ${allTrades.length}`);
